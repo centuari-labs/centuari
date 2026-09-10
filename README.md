@@ -27,18 +27,18 @@ Users retain on-chain custody while Centuari keeps latency-sensitive order match
 
 The backend, settlement engine, and indexer can observe the same transaction at different times. The shared `on-chain-effects` package verifies receipts and stamps mutations by transaction hash and log index so the second writer safely becomes a no-op.
 
-## Cross-chain architecture — designed, deferred
+## Cross-chain architecture
 
 > **Not part of the current launch:** The architecture below describes
-> Centuari's planned cross-chain phase. The active product remains hub-only on
-> Arbitrum Sepolia. Cross-chain contracts and indexer seams exist in the
-> codebase, but the spoke deployment, liquidity routing, operations, and user
+> Centuari's planned cross-chain phase. The current product runs only on the
+> Arbitrum Sepolia hub. Cross-chain contracts and indexer seams exist in the
+> codebase, but spoke deployment, liquidity routing, operations, and the user
 > experience are not live.
 
-Centuari is designed around a hub-and-spoke model. Lending markets, collateral
-accounting, order matching, and settlement remain on the Arbitrum hub. Spoke
-chains act as deposit and withdrawal edges, so adding a chain does not create a
-separate lending market or fragment the order book.
+Centuari uses a hub-and-spoke model. Lending markets, collateral accounting,
+order matching, and settlement remain on the Arbitrum hub. Spoke chains handle
+deposits and withdrawals, so adding a chain does not create a separate lending
+market or fragment the order book.
 
 ```mermaid
 flowchart LR
@@ -89,18 +89,17 @@ flowchart LR
    through CCTP or Stargate without blocking the accounting message that makes
    the deposit visible on the hub.
 
-Conceptually, the projected deposit record passes through three milestones that
-make that separation explicit:
+The projected deposit record passes through three milestones:
 
 ```text
 INITIATED  →  CREDITED  →  BRIDGED
 spoke tx      hub balance   physical liquidity reconciled
 ```
 
-Messaging and liquidity movement are separate on purpose. LayerZero carries
-the authenticated accounting intent, while CCTP or Stargate moves the actual
-tokens. This keeps the lending system hub-local and avoids coupling user-facing
-credit confirmation to a slower bridge operation.
+Messaging and liquidity movement use separate paths. LayerZero carries the
+authenticated accounting intent, while CCTP or Stargate moves the actual
+tokens. The lending system stays hub-local, and user-facing credit confirmation
+does not wait for the bridge operation.
 
 ### Withdrawal path
 
@@ -121,11 +120,12 @@ the selected destination must have sufficient available liquidity.
 | Insufficient destination liquidity | Per-chain liquidity accounting constrains where a withdrawal can be fulfilled. |
 | Deposit that never confirms | Bridged deposits include an original-depositor timeout/refund path. Activation must also prove that hub acknowledgement closes the credit-then-refund race. |
 
-Before this design becomes a product surface, every hub/spoke route must pass
-an end-to-end activation gate: trusted peers and LayerZero options configured,
-credit/refund acknowledgement proven race-safe, asset classifications matched
-on both chains, liquidity accounting reconciled, and deposit plus withdrawal
-recovery tested under delayed and replayed messages.
+Before this design becomes a product feature, every hub/spoke route must pass
+an end-to-end activation gate. Trusted peers and LayerZero options must be
+configured, credit/refund acknowledgement must be race-safe, asset
+classifications must match on both chains, liquidity accounting must reconcile,
+and deposit plus withdrawal recovery must work with delayed and replayed
+messages.
 
 ### Future solver fast-fill
 
@@ -136,8 +136,8 @@ a solver observes and validates the spoke deposit, calls
 reimbursement claim in `SettlementLedger`. When the underlying transfer is
 reconciled, the solver can recover the capital it advanced.
 
-The `fillFor` and `SettlementLedger` seams are deliberately dormant. Activating
-them requires solver operations, capital limits, monitoring, and reimbursement
+The `fillFor` and `SettlementLedger` seams are dormant. Activating them
+requires solver operations, capital limits, monitoring, and reimbursement
 controls beyond the current hub-only launch.
 
 ## Repositories
